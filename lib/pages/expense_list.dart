@@ -44,9 +44,11 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
     }
     return sortedDateAndExpenseArray;
   }
-  
+
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -62,7 +64,8 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10),
-        child: Column(
+        child: width < 600 ?
+        Column(
           children: [
             Chart(expenses: _expenseList),
             Expanded(
@@ -74,7 +77,19 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
               ),
             ),
           ],
-        ),
+        ) : Row(
+          children: [
+            Expanded(child: Chart(expenses: _expenseList)),
+            Expanded(
+              child: ListView.builder(
+                itemCount: dateAndExpenseArray.length,
+                itemBuilder: (context, index) {
+                  return _buildListItem(index);
+                },
+              ),
+            ),
+          ],
+        )
       ),
     );
   }
@@ -113,6 +128,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
 
   void _showAddNewExpenseModel() {
     showModalBottomSheet(
+      useSafeArea: true,
       isScrollControlled: true,
       context: context,
       builder: (ctx) {
