@@ -23,13 +23,16 @@ class ExpenseCard extends StatelessWidget {
         child: Row(
          crossAxisAlignment: CrossAxisAlignment.end,
          children: [
-           Column(
-             crossAxisAlignment: CrossAxisAlignment.start,
-             mainAxisAlignment: MainAxisAlignment.spaceAround,
-             children: [
-              Text(expenseItem.title.toCapitalized(), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),),
-              Text("INR.${expenseItem.amount}", style: const TextStyle(fontWeight: FontWeight.w400))
-           ],),
+           Expanded(
+             child: Column(
+               crossAxisAlignment: CrossAxisAlignment.start,
+               mainAxisAlignment: MainAxisAlignment.spaceAround,
+               children: [
+                Text(expenseItem.title.toCapitalized(),
+                 style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16), overflow: TextOverflow.ellipsis, maxLines: 1,),
+                Text("INR.${expenseItem.amount}", style: const TextStyle(fontWeight: FontWeight.w400))
+             ],),
+           ),
            const Spacer(),
            Row(
              children: [

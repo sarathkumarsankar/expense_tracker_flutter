@@ -1,74 +1,22 @@
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:expense_tracker/model/expense.dart';
 import 'package:expense_tracker/pages/add_new_expense.dart';
 import 'package:expense_tracker/widgets/chart/chart.dart';
-import 'package:flutter/material.dart';
 import 'package:expense_tracker/widgets/expense_card.dart';
-import 'package:intl/intl.dart';
 
 class ExpenseListPage extends StatefulWidget {
-  const ExpenseListPage({super.key});
+  const ExpenseListPage({Key? key}) : super(key: key);
 
   @override
   State<ExpenseListPage> createState() => _ExpenseListPageState();
 }
 
 class _ExpenseListPageState extends State<ExpenseListPage> {
-  final firestoreInstance = FirebaseFirestore.instance;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  final List<ExpenseItem> expenseList = [];
-
-  final db = FirebaseFirestore.instance;
-
-  void _addToFirebase(ExpenseItem expense) {
-    final user = <String, String>{
-      "title": expense.title,
-      "amount": expense.amount,
-      "id": expense.id ?? "",
-      "date": expense.date,
-      "category": expense.category.name,
-    };
-    db.collection("expense").add(user).then((DocumentReference doc) {
-      print('DocumentSnapshot added with ID: ${doc.id}');
-      expenseList.add(ExpenseItem(
-          id: doc.id,
-          title: expense.title,
-          amount: expense.amount,
-          date: expense.date,
-          category: expense.category));
-      setState(() {});
-    });
-  }
-
-  Future<void> _readFromFirebase() async {
-    await db.collection("expense").get().then((event) {
-      for (var doc in event.docs) {
-        // print("${doc.id} => ${doc.data()}");
-        final categoryStr = doc.data()['category'];
-        final categoryName = ExpenseCategory.values
-            .where((element) => element.name == categoryStr)
-            .toList();
-        expenseList.add(ExpenseItem(
-          id: doc.id,
-          title: doc.data()['title'],
-          amount: doc.data()['amount'],
-          date: doc.data()['date'],
-          category: categoryName.isNotEmpty
-              ? categoryName.first
-              : ExpenseCategory.food,
-        ));
-      }
-    getUniqueDatesMap();
-    });
-    setState(() {});
-  }
-
-  Future<void> _deleteFromFirebase(String id) async {
-    final docRefference = db.collection("expense").doc(id);
-    docRefference.delete().then((value) {
-      print("deleted");
-    });
-  }
+  final List<ExpenseItem> _expenseList = [];
 
   @override
   void initState() {
@@ -79,72 +27,147 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-            title: const Text(
-              "Flutter ExpenseTracker",
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500),
-            ),
-            actions: [
-              IconButton(
-                  onPressed: () {
-                    showModalBottomSheet(
-                        isScrollControlled: true,
-                        context: context,
-                        builder: (ctx) {
-                          return AddExpensePage(onAddExpense: (expense) {
-                            /// firebase
-                            _addToFirebase(expense);
-                          });
-                        });
-                  },
-                  icon: const Icon(Icons.add))
-            ]),
-        body: Column(
+      appBar: AppBar(
+        title: const Text(
+          "Flutter ExpenseTracker",
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500),
+        ),
+        actions: [
+          IconButton(
+            onPressed: () => _showAddNewExpenseModel(),
+            icon: const Icon(Icons.add),
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        child: Column(
           children: [
-            Chart(expenses: expenseList),
+            Chart(expenses: _expenseList),
             Expanded(
               child: ListView.builder(
-                  itemCount: expenseList.length,
-                  itemBuilder: (ctx, index) {
-                    return Container(
-                      height: 90,
-                      padding:
-                          const EdgeInsets.only(left: 10, right: 10, top: 10),
-                      child: Dismissible(
-                        key: Key(expenseList[index].id ?? ""),
-                        background: Container(
-                          color: Theme.of(context).colorScheme.error,
-                        ),
-                        child: ExpenseCard(expenseItem: expenseList[index]),
-                        onDismissed: (direction) {
-                          _removeExpense(index, expenseList[index]);
-                        },
-                      ),
-                    );
-                  }
-                  ),
+                itemCount: dateAndExpenseArray.length,
+                itemBuilder: (context, index) {
+                  return _buildListItem(index);
+                },
+              ),
             ),
           ],
-        ));
+        ),
+      ),
+    );
   }
 
-  // Helper function to get unique dates from the expenseList
-  Map<DateTime, List<ExpenseItem>> getUniqueDatesMap() {
-    final uniqueDatesMap = <DateTime, List<ExpenseItem>>{};
-    for (var expense in expenseList) {
-      DateTime parsedDate = DateFormat.yMd().parse(expense.date);
-      if (!uniqueDatesMap.containsKey(parsedDate)) {
-        uniqueDatesMap[parsedDate] = [expense];
+  Map<String, List<ExpenseItem>> get dateAndExpenseArray {
+    Map<String, List<ExpenseItem>> tempDict = {};
+    for (final expense in _expenseList) {
+      if (tempDict.containsKey(expense.date)) {
+        tempDict[expense.date]!.add(expense);
       } else {
-        uniqueDatesMap[parsedDate]!.add(expense);
+        tempDict[expense.date] = [expense];
       }
     }
-    return uniqueDatesMap;
+    // Sort the keys (dates)
+    List<String> sortedKeys = tempDict.keys.toList()..sort();
+    // Create a new map with sorted keys
+    Map<String, List<ExpenseItem>> sortedDateAndExpenseArray = {};
+    for (final key in sortedKeys) {
+      sortedDateAndExpenseArray[key] = tempDict[key]!;
+    }
+    return sortedDateAndExpenseArray;
   }
-    
+
+  Widget _buildListItem(int index) {
+    List<String> keys = dateAndExpenseArray.keys.toList();
+    final key = keys[index];
+    return Column(
+      children: [
+        SectionTitle(date: DateFormat.yMd().parse(key)),
+        ...dateAndExpenseArray[key]!
+            .map((expense) => _buildExpenseItem(expense))
+            .toList(),
+      ],
+    );
+  }
+
+  Widget _buildExpenseItem(ExpenseItem expense) {
+    return Container(
+      height: 90,
+      padding: const EdgeInsets.only(top: 5),
+      child: Dismissible(
+        key: Key(expense.id ?? ""),
+        background: Container(
+          color: Theme.of(context).colorScheme.error,
+        ),
+        child: ExpenseCard(expenseItem: expense),
+        onDismissed: (direction) {
+          _removeExpense(1, expense);
+        },
+      ),
+    );
+  }
+
+  void _showAddNewExpenseModel() {
+    showModalBottomSheet(
+      isScrollControlled: true,
+      context: context,
+      builder: (ctx) {
+        return AddExpensePage(onAddExpense: (expense) {
+          _addToFirebase(expense);
+        });
+      },
+    );
+  }
+
+  void _addToFirebase(ExpenseItem expense) async {
+    final user = <String, String>{
+      "title": expense.title,
+      "amount": expense.amount,
+      "id": expense.id ?? "",
+      "date": expense.date,
+      "category": expense.category.name,
+    };
+
+    DocumentReference doc = await _db.collection("expense").add(user);
+    print('DocumentSnapshot added with ID: ${doc.id}');
+    setState(() {
+      _expenseList.add(ExpenseItem(
+        id: doc.id,
+        title: expense.title,
+        amount: expense.amount,
+        date: expense.date,
+        category: expense.category,
+      ));
+    });
+  }
+
+  void _readFromFirebase() async {
+    try {
+      var querySnapshot = await _db.collection("expense").get();
+      _expenseList.clear();
+      for (var doc in querySnapshot.docs) {
+        final categoryStr = doc.data()['category'];
+        final categoryName = ExpenseCategory.values
+            .where((element) => element.name == categoryStr)
+            .toList();
+        _expenseList.add(ExpenseItem(
+          id: doc.id,
+          title: doc.data()['title'],
+          amount: doc.data()['amount'],
+          date: doc.data()['date'],
+          category: categoryName.isNotEmpty
+              ? categoryName.first
+              : ExpenseCategory.food,
+        ));
+      }
+    } catch (e) {
+      // Handle errors...
+    }
+  }
+
   void _removeExpense(int index, ExpenseItem expense) {
     setState(() {
-      expenseList.remove(expense);
+      _expenseList.remove(expense);
     });
     ScaffoldMessenger.of(context)
         .showSnackBar(
@@ -155,7 +178,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
               label: 'Undo',
               onPressed: () {
                 setState(() {
-                  expenseList.insert(index, expense);
+                  _expenseList.insert(index, expense);
                 });
               },
             ),
@@ -163,19 +186,19 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
         )
         .closed
         .then((reason) {
-      // This code will be executed when the SnackBar is closed
       if (reason == SnackBarClosedReason.timeout) {
         _deleteFromFirebase(expense.id ?? "");
-        // SnackBar was closed after the specified duration
-        // Add your post-SnackBar timeout logic here
-      } else {
-        // SnackBar was closed manually (e.g., by pressing 'Undo')
-        // Add your post-SnackBar manual close logic here
       }
     });
   }
-}
 
+  void _deleteFromFirebase(String id) async {
+    final docReference = _db.collection("expense").doc(id);
+    docReference.delete().then((value) {
+      print("deleted");
+    });
+  }
+}
 
 class SectionTitle extends StatelessWidget {
   final DateTime date;
@@ -184,14 +207,25 @@ class SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode =
+        MediaQuery.of(context).platformBrightness == Brightness.dark;
     return Container(
-      padding: const EdgeInsets.all(16),
-      color: Theme.of(context).primaryColor,
-      child: Text(
-        DateFormat.yMd().format(date),
-        style: const TextStyle(
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
+      width: double.infinity,
+      padding: const EdgeInsets.only(top: 5),
+      child: Card(
+        color: isDarkMode
+            ? Theme.of(context).colorScheme.secondary
+            : Theme.of(context).colorScheme.primary.withOpacity(0.5),
+        child: Padding(
+          padding: const EdgeInsets.all(5.0),
+          child: Text(
+            DateFormat.yMd().format(date),
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+            textAlign: TextAlign.center,
+          ),
         ),
       ),
     );
