@@ -23,7 +23,6 @@ class FirebaseService {
         );
       }).toList();
     } catch (e) {
-      print(e);
       return [];
     }
   }
