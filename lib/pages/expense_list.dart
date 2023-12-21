@@ -5,6 +5,7 @@ import 'package:expense_tracker/model/expense.dart';
 import 'package:expense_tracker/pages/add_new_expense.dart';
 import 'package:expense_tracker/widgets/chart/chart.dart';
 import 'package:expense_tracker/widgets/expense_card.dart';
+import 'package:expense_tracker/firebase_service.dart';
 
 class ExpenseListPage extends StatefulWidget {
   const ExpenseListPage({Key? key}) : super(key: key);
@@ -15,6 +16,7 @@ class ExpenseListPage extends StatefulWidget {
 
 class _ExpenseListPageState extends State<ExpenseListPage> {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseService _firebaseService = FirebaseService();
 
   final List<ExpenseItem> _expenseList = [];
 
@@ -24,6 +26,25 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
     _readFromFirebase();
   }
 
+  Map<String, List<ExpenseItem>> get dateAndExpenseArray {
+    Map<String, List<ExpenseItem>> tempDict = {};
+    for (final expense in _expenseList) {
+      if (tempDict.containsKey(expense.date)) {
+        tempDict[expense.date]!.add(expense);
+      } else {
+        tempDict[expense.date] = [expense];
+      }
+    }
+    // Sort the keys (dates)
+    List<String> sortedKeys = tempDict.keys.toList()..sort();
+    // Create a new map with sorted keys
+    Map<String, List<ExpenseItem>> sortedDateAndExpenseArray = {};
+    for (final key in sortedKeys) {
+      sortedDateAndExpenseArray[key] = tempDict[key]!;
+    }
+    return sortedDateAndExpenseArray;
+  }
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -58,39 +79,22 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
     );
   }
 
-  Map<String, List<ExpenseItem>> get dateAndExpenseArray {
-    Map<String, List<ExpenseItem>> tempDict = {};
-    for (final expense in _expenseList) {
-      if (tempDict.containsKey(expense.date)) {
-        tempDict[expense.date]!.add(expense);
-      } else {
-        tempDict[expense.date] = [expense];
-      }
-    }
-    // Sort the keys (dates)
-    List<String> sortedKeys = tempDict.keys.toList()..sort();
-    // Create a new map with sorted keys
-    Map<String, List<ExpenseItem>> sortedDateAndExpenseArray = {};
-    for (final key in sortedKeys) {
-      sortedDateAndExpenseArray[key] = tempDict[key]!;
-    }
-    return sortedDateAndExpenseArray;
-  }
-
   Widget _buildListItem(int index) {
     List<String> keys = dateAndExpenseArray.keys.toList();
     final key = keys[index];
     return Column(
       children: [
         SectionTitle(date: DateFormat.yMd().parse(key)),
-        ...dateAndExpenseArray[key]!
-            .map((expense) => _buildExpenseItem(expense))
-            .toList(),
+      ...dateAndExpenseArray[key]!.asMap().entries.map((entry) {
+        final innerIndex = entry.key;
+        final expense = entry.value;
+        return _buildExpenseItem(innerIndex, expense);
+      }).toList(),
       ],
     );
   }
 
-  Widget _buildExpenseItem(ExpenseItem expense) {
+  Widget _buildExpenseItem(int index, ExpenseItem expense) {
     return Container(
       height: 90,
       padding: const EdgeInsets.only(top: 5),
@@ -101,7 +105,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
         ),
         child: ExpenseCard(expenseItem: expense),
         onDismissed: (direction) {
-          _removeExpense(1, expense);
+          _removeExpense(index, expense);
         },
       ),
     );
@@ -119,47 +123,19 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
     );
   }
 
-  void _addToFirebase(ExpenseItem expense) async {
-    final user = <String, String>{
-      "title": expense.title,
-      "amount": expense.amount,
-      "id": expense.id ?? "",
-      "date": expense.date,
-      "category": expense.category.name,
-    };
-
-    DocumentReference doc = await _db.collection("expense").add(user);
-    print('DocumentSnapshot added with ID: ${doc.id}');
+void _addToFirebase(ExpenseItem expense) async {
+    await _firebaseService.addToFirebase(expense);
     setState(() {
-      _expenseList.add(ExpenseItem(
-        id: doc.id,
-        title: expense.title,
-        amount: expense.amount,
-        date: expense.date,
-        category: expense.category,
-      ));
+      _expenseList.add(expense);
     });
   }
 
-  void _readFromFirebase() async {
+ void _readFromFirebase() async {
     try {
-      var querySnapshot = await _db.collection("expense").get();
-      _expenseList.clear();
-      for (var doc in querySnapshot.docs) {
-        final categoryStr = doc.data()['category'];
-        final categoryName = ExpenseCategory.values
-            .where((element) => element.name == categoryStr)
-            .toList();
-        _expenseList.add(ExpenseItem(
-          id: doc.id,
-          title: doc.data()['title'],
-          amount: doc.data()['amount'],
-          date: doc.data()['date'],
-          category: categoryName.isNotEmpty
-              ? categoryName.first
-              : ExpenseCategory.food,
-        ));
-      }
+      final expenses = await _firebaseService.readExpenses();
+      setState(() {
+        _expenseList.addAll(expenses);
+      });
     } catch (e) {
       // Handle errors...
     }
@@ -193,9 +169,9 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
   }
 
   void _deleteFromFirebase(String id) async {
-    final docReference = _db.collection("expense").doc(id);
-    docReference.delete().then((value) {
-      print("deleted");
+    await _firebaseService.deleteFromFirebase(id);
+    setState(() {
+      _expenseList.removeWhere((expense) => expense.id == id);
     });
   }
 }
