@@ -36,7 +36,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
       }
     }
     // Sort the keys (dates)
-    List<String> sortedKeys = tempDict.keys.toList()..sort();
+    List<String> sortedKeys = tempDict.keys.toList()..sort((a, b) => b.compareTo(a),);
     // Create a new map with sorted keys
     Map<String, List<ExpenseItem>> sortedDateAndExpenseArray = {};
     for (final key in sortedKeys) {

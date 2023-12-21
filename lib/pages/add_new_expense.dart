@@ -78,74 +78,72 @@ class _AddExpensePageState extends State<AddExpensePage> {
         FocusManager.instance.primaryFocus?.unfocus();
       },
       child: Scaffold(
-        body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.only(left: 20, right: 40, top: 10, bottom: 20),
-            child: SingleChildScrollView(
-              child: SizedBox(
-                width: double.infinity,
-                child: Column(
-                  children: [
-                    TextField(
-                      controller: titleEditController,
-                      maxLength: 50,
-                      decoration: const InputDecoration(
-                        hintText: "Title",
-                      ),
+        body: Padding(
+          padding: const EdgeInsets.only(left: 20, right: 40, top: 10, bottom: 20),
+          child: SingleChildScrollView(
+            child: SizedBox(
+              width: double.infinity,
+              child: Column(
+                children: [
+                  TextField(
+                    controller: titleEditController,
+                    maxLength: 50,
+                    decoration: const InputDecoration(
+                      hintText: "Title",
                     ),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: amountEditController,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(hintText: "Amount"),
-                            onSubmitted: (String value) {
-                              FocusScope.of(context).unfocus();
-                            },
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          selectedDate == null
-                              ? "No date selected"
-                              : DateFormat.yMd().format(selectedDate!),
-                        ),
-                        IconButton(
-                            onPressed: _selectDate,
-                            icon: const Icon(Icons.calendar_month)),
-                      ],
-                    ),
-                    const SizedBox(
-                      height: 16,
-                    ),
-                    Row(
-                      children: [
-                        DropdownButton<ExpenseCategory>(
-                          value: selectedCategory,
-                          icon: const Icon(Icons.arrow_downward, color: Colors.deepPurple),
-                          style: TextStyle(color:isDarkMode ? kDarkColorScheme.onPrimaryContainer : kColorScheme.onPrimaryContainer),
-                          onChanged: (ExpenseCategory? newValue) {
-                            setState(() {
-                              selectedCategory = newValue!;
-                            });
+                  ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: amountEditController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(hintText: "Amount"),
+                          onSubmitted: (String value) {
+                            FocusScope.of(context).unfocus();
                           },
-                          items: ExpenseCategory.values.map((category) {
-                            return DropdownMenuItem<ExpenseCategory>(
-                              value: category,
-                              child: Text(category.name.toUpperCase()),
-                            );
-                          }).toList(),
                         ),
-                        const Spacer(),
-                        ElevatedButton.icon(
-                            onPressed: _saveExpense,
-                            icon: const Icon(Icons.save),
-                            label: const Text("Save Expense")),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        selectedDate == null
+                            ? "No date selected"
+                            : DateFormat.yMd().format(selectedDate!),
+                      ),
+                      IconButton(
+                          onPressed: _selectDate,
+                          icon: const Icon(Icons.calendar_month)),
+                    ],
+                  ),
+                  const SizedBox(
+                    height: 16,
+                  ),
+                  Row(
+                    children: [
+                      DropdownButton<ExpenseCategory>(
+                        value: selectedCategory,
+                        icon: const Icon(Icons.arrow_downward, color: Colors.deepPurple),
+                        style: TextStyle(color:isDarkMode ? kDarkColorScheme.onPrimaryContainer : kColorScheme.onPrimaryContainer),
+                        onChanged: (ExpenseCategory? newValue) {
+                          setState(() {
+                            selectedCategory = newValue!;
+                          });
+                        },
+                        items: ExpenseCategory.values.map((category) {
+                          return DropdownMenuItem<ExpenseCategory>(
+                            value: category,
+                            child: Text(category.name.toUpperCase()),
+                          );
+                        }).toList(),
+                      ),
+                      const Spacer(),
+                      ElevatedButton.icon(
+                          onPressed: _saveExpense,
+                          icon: const Icon(Icons.save),
+                          label: const Text("Save Expense")),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),
