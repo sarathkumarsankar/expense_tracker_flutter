@@ -18,6 +18,8 @@ class _AddExpensePageState extends State<AddExpensePage> {
 
   DateTime? selectedDate;
   ExpenseCategory selectedCategory = ExpenseCategory.values.first;
+  final _formKey = GlobalKey<FormState>();
+  AutovalidateMode _autovalidate = AutovalidateMode.disabled;
 
   List<DropdownMenuItem<String>> get dropdownItems {
     List<DropdownMenuItem<String>> menuItems = ExpenseCategory.values.map((e) {
@@ -35,7 +37,6 @@ class _AddExpensePageState extends State<AddExpensePage> {
       initialDate: selectedDate ?? DateTime.now(),
       firstDate: DateTime(2022),
       lastDate: DateTime.now(),
-      
     );
 
     if (pickedDate != null && pickedDate != selectedDate) {
@@ -46,111 +47,150 @@ class _AddExpensePageState extends State<AddExpensePage> {
   }
 
   void _saveExpense() {
-    if (selectedDate != null && titleEditController.text.trim().isNotEmpty && amountEditController.text.trim().isNotEmpty) {
-      widget.onAddExpense(ExpenseItem(
-          title: titleEditController.text,
-          amount: amountEditController.text,
-          date: DateFormat.yMd().format(selectedDate!),
-          category: selectedCategory));
-      Navigator.of(context).pop();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-
-        const SnackBar(
-        duration: Duration(seconds: 1),
-          content: Text('Make sure all the inputs are entered!!!'),
-        ),
-      );
+    _autovalidate = AutovalidateMode.onUserInteraction;
+    if (_formKey.currentState!.validate()) {
+      _formKey.currentState!.save();
+      if (selectedDate == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            duration: Duration(seconds: 1),
+            content: Text('Please select the date'),
+          ),
+        );
+      } else {
+        widget.onAddExpense(ExpenseItem(
+            title: titleEditController.text,
+            amount: amountEditController.text,
+            date: DateFormat.yMd().format(selectedDate!),
+            category: selectedCategory));
+        Navigator.of(context).pop();
+      }
     }
   }
 
-@override
+  @override
   void dispose() {
     amountEditController.dispose();
     titleEditController.dispose();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
-    final isDarkMode = MediaQuery.of(context).platformBrightness == Brightness.dark;
+    final isDarkMode =
+        MediaQuery.of(context).platformBrightness == Brightness.dark;
     return GestureDetector(
       onTap: () {
         FocusManager.instance.primaryFocus?.unfocus();
       },
       child: Scaffold(
         body: Padding(
-          padding: const EdgeInsets.only(left: 20, right: 40, top: 10, bottom: 20),
+          padding:
+              const EdgeInsets.only(left: 20, right: 20, top: 40, bottom: 20),
           child: SingleChildScrollView(
             child: SizedBox(
-              width: double.infinity,
-              child: Column(
-                children: [
-                  TextField(
-                    controller: titleEditController,
-                    maxLength: 50,
-                    decoration: const InputDecoration(
-                      hintText: "Title",
+              child: Form(
+                autovalidateMode: _autovalidate,
+                key: _formKey,
+                child: Column(
+                  children: [
+                    TextFormField(
+                      controller: titleEditController,
+                      maxLength: 50,
+                      decoration: const InputDecoration(
+                        hintText: "Title",
+                      ),
+                      validator: (value) {
+                        if (value == null ||
+                            value.trim().length <= 1 ||
+                            value.length > 50) {
+                          return "Please enter the expense reason";
+                        }
+                        return null;
+                      },
                     ),
-                  ),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: amountEditController,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(hintText: "Amount"),
-                          onSubmitted: (String value) {
-                            FocusScope.of(context).unfocus();
-                          },
+                    const SizedBox(
+                      height: 16,
+                    ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: amountEditController,
+                            keyboardType: TextInputType.number,
+                            decoration:
+                                const InputDecoration(hintText: "Amount"),
+                            onTapOutside: (event) {
+                              FocusScope.of(context).unfocus();
+                            },
+                            validator: (value) {
+                              if (value == null ||
+                                  int.tryParse(value) == null ||
+                                  int.parse(value) <= 0) {
+                                return "Please enter a valid amount";
+                              }
+                              return null;
+                            },
+                          ),
                         ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        selectedDate == null
-                            ? "No date selected"
-                            : DateFormat.yMd().format(selectedDate!),
-                      ),
-                      IconButton(
-                          onPressed: _selectDate,
-                          icon: const Icon(Icons.calendar_month)),
-                    ],
-                  ),
-                  const SizedBox(
-                    height: 16,
-                  ),
-                  Row(
-                    children: [
-                      DropdownButton<ExpenseCategory>(
-                        value: selectedCategory,
-                        icon: const Icon(Icons.arrow_downward, color: Colors.deepPurple),
-                        style: TextStyle(color:isDarkMode ? kDarkColorScheme.onPrimaryContainer : kColorScheme.onPrimaryContainer),
-                        onChanged: (ExpenseCategory? newValue) {
-                          setState(() {
-                            selectedCategory = newValue!;
-                          });
-                        },
-                        items: ExpenseCategory.values.map((category) {
-                          return DropdownMenuItem<ExpenseCategory>(
-                            value: category,
-                            child: Text(category.name.toUpperCase()),
-                          );
-                        }).toList(),
-                      ),
-                      const Spacer(),
-                      ElevatedButton.icon(
-                          onPressed: _saveExpense,
-                          icon: const Icon(Icons.save),
-                          label: const Text("Save Expense")),
-                    ],
-                  ),
-                ],
+                        const SizedBox(width: 10),
+                        Text(
+                          selectedDate == null
+                              ? "No date selected"
+                              : DateFormat.yMd().format(selectedDate!),
+                        ),
+                        const SizedBox(width: 5),
+                        GestureDetector(
+                            onTap: () => _selectDate(),
+                            child: const Icon(Icons.calendar_month_outlined))
+                      ],
+                    ),
+                    const SizedBox(
+                      height: 32,
+                    ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<ExpenseCategory>(
+                            value: selectedCategory,
+                            style: TextStyle(
+                                color: isDarkMode
+                                    ? kDarkColorScheme.onPrimaryContainer
+                                    : kColorScheme.onPrimaryContainer),
+                            onChanged: (newValue) {
+                              setState(() {
+                                selectedCategory = newValue!;
+                              });
+                            },
+                            items: ExpenseCategory.values.map((category) {
+                              return DropdownMenuItem<ExpenseCategory>(
+                                value: category,
+                                child: Text(category.name.toUpperCase()),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                        // const Spacer(),
+                        SizedBox(
+                          width: 10,
+                        ),
+                        Expanded(
+                          child: ElevatedButton(
+                              onPressed: _saveExpense,
+                              child: const Text("Save Expense")),
+                        )
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         ),
       ),
-      
     );
-    
   }
 }

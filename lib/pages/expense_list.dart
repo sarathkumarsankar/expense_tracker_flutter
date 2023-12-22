@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:expense_tracker/model/expense.dart';
 import 'package:expense_tracker/pages/add_new_expense.dart';
 import 'package:expense_tracker/widgets/chart/chart.dart';
@@ -15,34 +13,21 @@ class ExpenseListPage extends StatefulWidget {
 }
 
 class _ExpenseListPageState extends State<ExpenseListPage> {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
   final FirebaseService _firebaseService = FirebaseService();
 
   final List<ExpenseItem> _expenseList = [];
+
+  int get _totalExpense {
+    if (_expenseList.isEmpty) return 0;
+    return _expenseList
+                .map((e) => int.parse(e.amount))
+                .reduce((value, element) => value + element);
+  }
 
   @override
   void initState() {
     super.initState();
     _readFromFirebase();
-  }
-
-  Map<String, List<ExpenseItem>> get dateAndExpenseArray {
-    Map<String, List<ExpenseItem>> tempDict = {};
-    for (final expense in _expenseList) {
-      if (tempDict.containsKey(expense.date)) {
-        tempDict[expense.date]!.add(expense);
-      } else {
-        tempDict[expense.date] = [expense];
-      }
-    }
-    // Sort the keys (dates)
-    List<String> sortedKeys = tempDict.keys.toList()..sort((a, b) => b.compareTo(a),);
-    // Create a new map with sorted keys
-    Map<String, List<ExpenseItem>> sortedDateAndExpenseArray = {};
-    for (final key in sortedKeys) {
-      sortedDateAndExpenseArray[key] = tempDict[key]!;
-    }
-    return sortedDateAndExpenseArray;
   }
 
   @override
@@ -68,9 +53,10 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
         Column(
           children: [
             Chart(expenses: _expenseList),
+            Align(alignment: Alignment.bottomRight, child: Text("Total: $_totalExpense", style: TextStyle(fontWeight: FontWeight.bold),), ),
             Expanded(
               child: ListView.builder(
-                itemCount: dateAndExpenseArray.length,
+                itemCount: _expenseList.length,
                 itemBuilder: (context, index) {
                   return _buildListItem(index);
                 },
@@ -82,7 +68,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
             Expanded(child: Chart(expenses: _expenseList)),
             Expanded(
               child: ListView.builder(
-                itemCount: dateAndExpenseArray.length,
+                itemCount: _expenseList.length,
                 itemBuilder: (context, index) {
                   return _buildListItem(index);
                 },
@@ -95,18 +81,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
   }
 
   Widget _buildListItem(int index) {
-    List<String> keys = dateAndExpenseArray.keys.toList();
-    final key = keys[index];
-    return Column(
-      children: [
-        SectionTitle(date: DateFormat.yMd().parse(key)),
-      ...dateAndExpenseArray[key]!.asMap().entries.map((entry) {
-        final innerIndex = entry.key;
-        final expense = entry.value;
-        return _buildExpenseItem(innerIndex, expense);
-      }).toList(),
-      ],
-    );
+    return _buildExpenseItem(index, _expenseList[index]);
   }
 
   Widget _buildExpenseItem(int index, ExpenseItem expense) {
@@ -149,14 +124,18 @@ void _addToFirebase(ExpenseItem expense) async {
  void _readFromFirebase() async {
     try {
       final expenses = await _firebaseService.readExpenses();
+      _expenseList.addAll(expenses);
+      _expenseList.sort((a, b) {
+         return b.date.compareTo(a.date);
+      });
       setState(() {
-        _expenseList.addAll(expenses);
       });
     } catch (e) {
       // Handle errors...
     }
   }
 
+  
   void _removeExpense(int index, ExpenseItem expense) {
     setState(() {
       _expenseList.remove(expense);
@@ -189,37 +168,5 @@ void _addToFirebase(ExpenseItem expense) async {
     setState(() {
       _expenseList.removeWhere((expense) => expense.id == id);
     });
-  }
-}
-
-class SectionTitle extends StatelessWidget {
-  final DateTime date;
-
-  const SectionTitle({Key? key, required this.date}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    final isDarkMode =
-        MediaQuery.of(context).platformBrightness == Brightness.dark;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.only(top: 5),
-      child: Card(
-        color: isDarkMode
-            ? Theme.of(context).colorScheme.secondary
-            : Theme.of(context).colorScheme.primary.withOpacity(0.5),
-        child: Padding(
-          padding: const EdgeInsets.all(5.0),
-          child: Text(
-            DateFormat.yMd().format(date),
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ),
-      ),
-    );
   }
 }
