@@ -9,6 +9,11 @@ The Expense Tracker App is a Flutter application that helps users track their ex
 - **Date-wise Overview:** View your expenses grouped by dates for easy tracking.
 - **Firebase Integration:** Utilizes Firebase for real-time data storage and synchronization across devices.
 
+
+https://github.com/sarathkumarsankar/expense_tracker_flutter/assets/12977299/d8c018d5-0bdb-4469-9ac6-810e3cb34926
+
+
+
 ## Getting Started
 
 Need to do little work based on platform for Firebase integration:
